@@ -6,7 +6,7 @@ const ProductCard = ({ product }) => {
   return (
 
         <Card
-        className="category-card shadow-sm border border-secondary p-3"
+        className="h-100 category-card shadow-sm border border-secondary "
         style={{
                 cursor:"pointer"
         }}
