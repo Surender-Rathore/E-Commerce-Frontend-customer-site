@@ -69,7 +69,7 @@ const Home = () => {
             <Button
               color="dark"
               type="submit"
-              onClick={() => navigate("/products")}
+              onClick={() => navigate("/product")}
             >
               Shop now
             </Button>
@@ -121,7 +121,7 @@ const Home = () => {
                 ))}
               </Row>
 
-              // or agr 4 se zyada hon to view all products ka option aye
+              {/* or agr 4 se zyada hon to view all products ka option aye */}
               {
                 products.length > 4 && (
                   <div
@@ -130,7 +130,7 @@ const Home = () => {
                     <Button
                     color="dark"
                     outline
-                    onClick={()=> navigate("/products")}
+                    onClick={()=> navigate("/product")}
                     >
                       View all products
                     </Button>
