@@ -105,20 +105,39 @@ const Home = () => {
             ) : featuredProducts.length === 0 ? (
               <p className="text-muted">No products available</p>
             ) : (
+              <>
               <Row className="g-3">
                 {/* Card-1 */}
                 {featuredProducts.map((product) => (
                   <Col
-                    md="3"
-                    xs="6"
                     key={product.id}
-                    onClick={() => navigate(`/product/${product.id}`)}
-                    style={{ cursor: "pointer" }}
+                    // Mobile per agr ek product ho to woh puri width le sakta hai(12) warma 2 columns to 6
+                    xs = {12/Math.min(featuredProducts.length,2)}
+                    // desktop pr 1 product puri 12 width lega or 2 hongy to 6 or 3 hongy to 4 or 4 hongy to 3
+                    md={12/Math.min(featuredProducts.length, 4)}
                   >
                     <ProductCard product={product}/>
                   </Col>
                 ))}
               </Row>
+
+              {/* or agr 4 se zyada hon to view all products ka option aye */}
+              {
+                products.length > 4 && (
+                  <div
+                  className="text-center mt-4"
+                  >
+                    <Button
+                    color="dark"
+                    outline
+                    onClick={()=> navigate("/product")}
+                    >
+                      View all products
+                    </Button>
+                  </div>
+                )
+              }
+              </>
             )}
           </div>
         </div>
