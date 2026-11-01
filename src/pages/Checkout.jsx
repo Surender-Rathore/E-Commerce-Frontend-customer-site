@@ -16,6 +16,7 @@ import { Form } from "reactstrap";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router";
 import { getCart } from "../api/cartApi"; // CHANGE 1: backend se cart mangwane wala function
+import { placeOrder } from './../api/orderApi';
 
 const SHIPPING_FEE = 200; // CHANGE 1: shipping fee ek jagah (Cart page aur backend wali hi 200)
 
@@ -28,6 +29,7 @@ const Checkout = () => {
   // CHANGE 1: cart ke items aur loading ki state
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [placing, setPlacing] = useState(false);
 
   // CHANGE 2: shipping form ka data yahan jama hoga
   const [shipping, setShipping] = useState({
@@ -59,6 +61,20 @@ const Checkout = () => {
 
     loadCart();
   }, [navigate]);
+
+  const handlePlaceOrder = async()=>{
+    setPlacing(true);
+    try {
+      await placeOrder(shipping, paymentMethod)
+      toast.success("Order placed sucessfully");
+      navigate('/');
+    } catch (err) {
+      console.log(err);
+      toast.error("Failed to place order");
+    } finally{
+      setPlacing(false)
+    }
+  }
 
   // CHANGE 1: total cart se nikalo (price x quantity), phir shipping jodo
   const subtotal = cartItems.reduce(
@@ -345,12 +361,10 @@ const Checkout = () => {
                       <Button onClick={() => setStep(2)}>Back</Button>
                       <Button
                         color="dark"
-                        onClick={() => {
-                          toast.success("Order placed successfully");
-                          navigate("/");
-                        }}
+                        onClick={handlePlaceOrder}
+                        disabled={placing}
                       >
-                        Place order
+                        {placing ? "Placing..." : "Place order"}
                       </Button>
                     </div>
                   </CardBody>
