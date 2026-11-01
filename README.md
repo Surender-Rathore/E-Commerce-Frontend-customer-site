@@ -28,3 +28,7 @@
 6. Installing React hot toast for showing toast messages
         command->
                 npm install react-hot-toast
+
+7. Installing stripe and react stripe
+        command->
+                npm install @stripe/stripe-js @stripe/react-stripe-js

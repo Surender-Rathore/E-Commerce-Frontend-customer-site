@@ -16,9 +16,55 @@ import { Form } from "reactstrap";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router";
 import { getCart } from "../api/cartApi"; // CHANGE 1: backend se cart mangwane wala function
-import { placeOrder } from './../api/orderApi';
+import { placeOrder } from "./../api/orderApi";
+import { loadStripe } from "@stripe/stripe-js";
+import { createPaymentIntent } from "./../api/paymentApi";
+import {
+  Elements,
+  PaymentElement,
+  useElements,
+  useStripe,
+} from "@stripe/react-stripe-js";
 
 const SHIPPING_FEE = 200; // CHANGE 1: shipping fee ek jagah (Cart page aur backend wali hi 200)
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+const CardPayment = ({ onPaid, disabled }) => {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [paying, setPaying] = useState(false);
+  const handlePay = async () => {
+    if (!stripe || !elements) return;
+    setPaying(true);
+    const { error, paymentIntent } = await stripe.confirmPayment({
+      elements,
+      redirect: "if_required",
+    });
+    if (error) {
+      toast.error(error.message);
+      setPaying(false);
+      return;
+    }
+
+    if (paymentIntent.status === "succeeded") {
+      await onPaid(paymentIntent.id);
+    }
+    setPaying(false);
+  };
+  return (
+    <>
+      <PaymentElement />
+      <Button
+        color="dark"
+        className="mt-3"
+        block
+        onClick={handlePay}
+        disabled={!stripe || paying || disabled}
+      >
+        {paying ? "Processing..." : "Pay & place order"}
+      </Button>
+    </>
+  );
+};
 
 const Checkout = () => {
   const [step, setStep] = useState(1);
@@ -30,6 +76,7 @@ const Checkout = () => {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
+  const [clientSecret, setClientSecret] = useState("");
 
   // CHANGE 2: shipping form ka data yahan jama hoga
   const [shipping, setShipping] = useState({
@@ -62,24 +109,44 @@ const Checkout = () => {
     loadCart();
   }, [navigate]);
 
-  const handlePlaceOrder = async()=>{
+  useEffect(() => {
+    if (step !== 3 || paymentMethod !== "card" || clientSecret) return;
+    const loadIntent = async () => {
+      try {
+        const res = await createPaymentIntent();
+        setClientSecret(res?.data?.clientSecret);
+      } catch (err) {
+        const errMessah =
+          err?.response?.data?.message || "Could not start card payment";
+        console.log(errMessah);
+        toast.error(errMessah);
+        setStep(2);
+      }
+    };
+
+    loadIntent();
+  }, [step, paymentMethod, clientSecret]);
+
+  const handlePlaceOrder = async (paymentIntentId) => {
     setPlacing(true);
     try {
-      await placeOrder(shipping, paymentMethod)
-      toast.success("Order placed sucessfully");
-      navigate('/');
+      await placeOrder(shipping, paymentMethod, paymentIntentId);
+      toast.success("Order placed successfully");
+      navigate("/");
     } catch (err) {
-      console.log(err);
-      toast.error("Failed to place order");
+      const errMessage =
+        err?.response?.data?.message || "Failed to place order";
+      toast.error(errMessage);
+      console.log(errMessage);
     } finally{
       setPlacing(false)
     }
-  }
+  };
 
   // CHANGE 1: total cart se nikalo (price x quantity), phir shipping jodo
   const subtotal = cartItems.reduce(
     (sum, item) => sum + item.product.price * item.quantity,
-    0
+    0,
   );
   const total = subtotal + SHIPPING_FEE;
 
@@ -262,25 +329,31 @@ const Checkout = () => {
 
                     {/* Card Payment - Stripe baad me add hoga */}
                     <div
+                      onClick={() => setPaymentMethod("card")}
                       style={{
-                        border: "0.5px solid var(--border)",
+                        border:
+                          paymentMethod === "card"
+                            ? "1.5px solid var(--border-accent)"
+                            : "0.5px solid var(--border)",
                         borderRadius: 8,
                         padding: 14,
                         marginBottom: 10,
+                        cursor: "pointer",
                         display: "flex",
                         alignItems: "center",
                         gap: 10,
-                        opacity: 0.5,
-                        cursor: "not-allowed",
                       }}
                     >
                       <Input
                         type="radio"
                         name="paymentMethod"
-                        disabled
-                        style={{ margin: 0 }}
+                        checked={paymentMethod === "card"}
+                        onChange={() => setPaymentMethod("card")}
+                        style={{
+                          margin: 0,
+                        }}
                       />
-                      Credit / Debit card (coming soon)
+                      Card / Debit Card
                     </div>
 
                     {/* Cash On delivery */}
@@ -356,16 +429,37 @@ const Checkout = () => {
                           : "Cash on delivery"}
                       </p>
                     </div>
+
+                    {paymentMethod === "card" && (
+                      <div className="mb-3 p-3 border rounded">
+                        <p className="fw-bold mb-2">Card details</p>
+                        {clientSecret ? (
+                          <Elements
+                            stripe={stripePromise}
+                            options={{ clientSecret }}
+                          >
+                            <CardPayment
+                              onPaid={handlePlaceOrder}
+                              disabled={placing}
+                            />
+                          </Elements>
+                        ) : (
+                          <Spinner size="sm" color="dark" />
+                        )}
+                      </div>
+                    )}
                     {/* Button: abhi bhi sirf toast, backend se Step 3 me jodenge */}
                     <div className="d-flex justify-content-between mt-3">
                       <Button onClick={() => setStep(2)}>Back</Button>
-                      <Button
-                        color="dark"
-                        onClick={handlePlaceOrder}
-                        disabled={placing}
-                      >
-                        {placing ? "Placing..." : "Place order"}
-                      </Button>
+                      {paymentMethod === "cod" && (
+                        <Button
+                          color="dark"
+                          onClick={() => handlePlaceOrder()}
+                          disabled={placing}
+                        >
+                          {placing ? "Placing..." : "Place order"}
+                        </Button>
+                      )}
                     </div>
                   </CardBody>
                 </Card>
@@ -400,7 +494,9 @@ const Checkout = () => {
                         </span>
                         <p>
                           Rs.{" "}
-                          {(item.product.price * item.quantity).toLocaleString()}
+                          {(
+                            item.product.price * item.quantity
+                          ).toLocaleString()}
                         </p>
                       </div>
                     ))}
